@@ -28,7 +28,7 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 ├── ingest.py                      # Script Python per indicizzare i documenti in ChromaDB
 ├── dati_azienda/                  # Cartella contenente i PDF/documenti da indicizzare
 ├── chroma_db/                     # Database vettoriale locale generato dopo l'ingestione
-├── scripts/                       # Script di utilità per setup, ingestion e avvio
+├── scripts/                       # Script per installazione, ingestion e avvio
 │   ├── setup_unix.sh              # Setup ambiente e dipendenze su Linux/macOS
 │   ├── setup_windows.ps1          # Setup ambiente e dipendenze su Windows PowerShell
 │   ├── ingest_chroma_unix.sh      # Indicizzazione documenti su Linux/macOS
@@ -85,9 +85,32 @@ Esegue le seguenti operazioni:
 > [!WARNING]
 > La prima installazione può richiedere parecchio tempo, anche **oltre 20 minuti**, a seconda della macchina e della connessione.
 >
-> Durante l'installazione alcune dipendenze possono sembrare ferme o bloccate, soprattutto durante il download/installazione di librerie legate a embeddings, modelli NLP, ChromaDB, Chainlit e componenti di LlamaIndex.
+> Durante l'installazione alcune dipendenze possono sembrare ferme o bloccate, soprattutto durante il download o l'installazione di librerie legate a embeddings, modelli NLP, ChromaDB, Chainlit e componenti di LlamaIndex.
 >
-> In generale, se il terminale non restituisce errori espliciti, **non interrompere subito il processo**: molto probabilmente non è bloccato, sta solo installando pacchetti pesanti.
+> Se il terminale non restituisce errori espliciti, **non interrompere subito il processo**: molto probabilmente non è bloccato, sta solo installando pacchetti pesanti.
+
+### Installazione tramite script
+
+La repository include script dedicati per preparare l'ambiente e installare le dipendenze.
+
+Su Linux/macOS:
+
+```bash
+chmod +x scripts/setup_unix.sh
+./scripts/setup_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\setup_windows.ps1
+```
+
+Gli script di setup creano o utilizzano l'ambiente virtuale del progetto e installano le dipendenze presenti in `requirements.txt`.
+
+### Installazione manuale
+
+In alternativa, è possibile installare il progetto manualmente.
 
 Creare un ambiente virtuale:
 
@@ -190,38 +213,10 @@ Questa impostazione consente di separare la logica applicativa dal provider effe
 
 ## Script di utilità
 
-La repository include alcuni script per semplificare le operazioni più comuni:
+Oltre agli script di installazione descritti nella sezione precedente, la repository include script per eseguire le due operazioni principali del prototipo:
 
-- preparazione dell'ambiente Python;
-- installazione delle dipendenze;
 - indicizzazione dei documenti in ChromaDB;
 - avvio dell'interfaccia Chainlit.
-
-Gli script sono disponibili sia per sistemi Unix-like, Linux/macOS, sia per Windows PowerShell.
-
-### Setup dell'ambiente
-
-Su Linux/macOS:
-
-```bash
-chmod +x scripts/setup_unix.sh
-./scripts/setup_unix.sh
-```
-
-Su Windows PowerShell:
-
-```powershell
-.\scripts\setup_windows.ps1
-```
-
-Gli script di setup creano o utilizzano l'ambiente virtuale del progetto e installano le dipendenze definite in `requirements.txt`.
-
-> [!WARNING]
-> Il setup iniziale può richiedere anche **più di 20 minuti**.
->
-> Questo comportamento è normale: il progetto utilizza dipendenze legate a RAG, parsing PDF, database vettoriali, interfacce LLM e modelli di embedding.
->
-> Alcuni passaggi possono sembrare bloccati perché `pip` sta scaricando, compilando o risolvendo pacchetti pesanti. Se non compare un errore esplicito, attendere il completamento.
 
 ### Indicizzazione dei documenti
 
@@ -273,7 +268,6 @@ chainlit run app.py
 
 Gli script non modificano la logica del progetto: servono solo a rendere più semplice e ripetibile l'esecuzione delle varie fasi del prototipo.
 
-
 ## Dataset
 
 Inserire i documenti da indicizzare nella cartella `dati_azienda`:
@@ -295,7 +289,21 @@ Il progetto può essere eseguito sia tramite comandi manuali sia tramite gli scr
 
 ### 1. Indicizzazione dei documenti
 
-Eseguire lo script di ingestione manualmente:
+Metodo consigliato tramite script.
+
+Su Linux/macOS:
+
+```bash
+./scripts/ingest_chroma_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\ingest_chroma_windows.ps1
+```
+
+In alternativa, eseguire manualmente:
 
 ```bash
 python ingest.py
@@ -312,7 +320,21 @@ Al termine dell'esecuzione viene stampato il numero di chunk salvati nel databas
 
 ### 2. Avvio dell'applicazione Chainlit
 
-Eseguire manualmente:
+Metodo consigliato tramite script.
+
+Su Linux/macOS:
+
+```bash
+./scripts/run_chainlit_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\run_chainlit_windows.ps1
+```
+
+In alternativa, eseguire manualmente:
 
 ```bash
 chainlit run app.py
@@ -404,7 +426,7 @@ Limitazioni attuali:
 - eventuali PDF scansionati potrebbero richiedere OCR prima dell'ingestione;
 - il modulo di ricerca web tramite agenti non è ancora implementato.
 
-## Sviluppi futuri
+## Possibili sviluppi futuri
 
 - ricerca automatica di bandi regionali tramite agenti web;
 - estrazione strutturata di metadati dai bandi;
