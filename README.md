@@ -105,20 +105,20 @@ Esempio di file `requirements.txt`:
 
 ```txt
 chainlit
-chromadb
-python-dotenv
 llama-index
 llama-index-vector-stores-chroma
+chromadb
 llama-index-llms-openai-like
 llama-index-embeddings-huggingface
-sentence-transformers
-pypdf
+llama-index-readers-file
 pymupdf
+pypdf
+python-dotenv
 ```
 
 ## Configurazione del modello LLM
 
-Il progetto non è vincolato a uno specifico provider LLM.
+Il progetto NON è vincolato a uno specifico provider LLM.
 
 La configurazione del modello generativo viene gestita tramite variabili d'ambiente, in modo da poter utilizzare:
 
