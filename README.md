@@ -1,6 +1,6 @@
 # Sistema RAG per Bandi di Ingegneria Civile
 
-Prototipo sviluppato per una tesi triennale in Informatica L-31 presso l'Università degli Studi di Bari Aldo Moro.
+Prototipo sviluppato per la tesi triennale in Informatica L-31 presso l'Università degli Studi di Bari Aldo Moro.
 
 Il progetto implementa una pipeline di **Retrieval-Augmented Generation (RAG)** per interrogare documenti amministrativi italiani, con particolare attenzione a bandi regionali relativi a opere pubbliche, infrastrutture e ambiti affini all'ingegneria civile.
 
