@@ -1,6 +1,6 @@
-# Sistema RAG per Bandi di ingegneria civie
+# Sistema RAG per Bandi di Ingegneria Civile
 
-Prototipo sviluppato per una tesi triennale in Informatica L-31 Università degli studi di Bari Aldo Moro
+Prototipo sviluppato per una tesi triennale in Informatica L-31 presso l'Università degli Studi di Bari Aldo Moro.
 
 Il progetto implementa una pipeline di **Retrieval-Augmented Generation (RAG)** per interrogare documenti amministrativi italiani, con particolare attenzione a bandi regionali relativi a opere pubbliche, infrastrutture e ambiti affini all'ingegneria civile.
 
@@ -13,7 +13,9 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 - Generazione di embeddings multilingua tramite `sentence-transformers`
 - Salvataggio dei vettori in locale con ChromaDB
 - Orchestrazione della pipeline RAG tramite LlamaIndex
-- Generazione delle risposte tramite API compatibile OpenAI, nel prototipo DeepSeek
+- Generazione delle risposte tramite modello LLM configurabile
+- Supporto a endpoint compatibili con API in stile OpenAI
+- Possibilità di utilizzare provider esterni o server universitari/aziendali
 - Interfaccia chat realizzata con Chainlit
 - Visualizzazione dei documenti sorgente utilizzati per la risposta
 - Output di debug con chunk recuperati e relativi score di similarità
@@ -27,6 +29,7 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 ├── dati_azienda/       # Cartella contenente i PDF/documenti da indicizzare
 ├── chroma_db/          # Database vettoriale locale generato dopo l'ingestione
 ├── .env                # Variabili d'ambiente, da non caricare su GitHub
+├── .env.example        # Esempio di configurazione
 ├── requirements.txt    # Dipendenze Python
 └── README.md
 ```
@@ -55,18 +58,19 @@ Esegue le seguenti operazioni:
 
 1. carica il database ChromaDB esistente da `./chroma_db`;
 2. ricostruisce un indice LlamaIndex a partire dal vector store;
-3. crea un query engine con:
+3. configura il modello LLM tramite variabili d'ambiente;
+4. crea un query engine con:
    - streaming della risposta;
    - `similarity_top_k=8`;
    - prompt personalizzato in italiano per documenti amministrativi;
-4. invia le domande dell'utente alla pipeline RAG;
-5. genera la risposta tramite il modello LLM;
-6. mostra i documenti sorgente utilizzati nella risposta.
+5. invia le domande dell'utente alla pipeline RAG;
+6. genera la risposta tramite il modello LLM configurato;
+7. mostra i documenti sorgente utilizzati nella risposta.
 
 ## Requisiti
 
 - Python 3.10 o superiore
-- Una API key (es OpenAi/Antrophic)
+- Una API key per il provider LLM scelto, oppure credenziali/endpoint di un server universitario o aziendale
 - Documenti PDF da indicizzare, inseriti nella cartella `./dati_azienda`
 
 ## Installazione
@@ -112,22 +116,63 @@ pypdf
 pymupdf
 ```
 
-## Variabili d'ambiente
+## Configurazione del modello LLM
 
-Creare un file `.env` nella root del progetto:
+Il progetto non è vincolato a uno specifico provider LLM.
+
+La configurazione del modello generativo viene gestita tramite variabili d'ambiente, in modo da poter utilizzare:
+
+- API esterne compatibili con il formato OpenAI;
+- endpoint locali o remoti messi a disposizione dall'università;
+- server aziendali o self-hosted, purché espongano un'interfaccia compatibile;
+- eventuali altri adapter supportati da LlamaIndex, modificando solo il blocco di configurazione del modello.
+
+Nel codice viene utilizzato `OpenAILike` di LlamaIndex, che permette di collegare la pipeline RAG a un endpoint compatibile con API in stile OpenAI.
+
+Esempio di configurazione nel file `.env`:
 
 ```env
-DEEPSEEK_API_KEY=your_api_key_here
+LLM_MODEL=gpt-4o-mini
+LLM_API_KEY=your_api_key_here
+LLM_API_BASE=https://api.openai.com/v1
+LLM_TEMPERATURE=0.1
 ```
 
-Nel prototipo, DeepSeek viene utilizzato tramite l'interfaccia OpenAI-compatible di LlamaIndex:
+Nel caso di utilizzo di un server universitario o aziendale, è sufficiente modificare le variabili:
+
+```env
+LLM_MODEL=nome-modello
+LLM_API_KEY=token_o_placeholder
+LLM_API_BASE=http://server-universitario:8000/v1
+LLM_TEMPERATURE=0.1
+```
+
+L'importante è che l'endpoint indicato in `LLM_API_BASE` esponga un'interfaccia compatibile con il formato atteso dal client. In caso contrario, sarà necessario sostituire `OpenAILike` con l'adapter LlamaIndex più adatto al modello o al servizio utilizzato.
+
+Esempio di configurazione lato codice:
 
 ```python
-OpenAILike(
-    model="deepseek-chat",
-    api_base="https://api.deepseek.com",
+llm_model = os.getenv("LLM_MODEL")
+llm_api_key = os.getenv("LLM_API_KEY")
+llm_api_base = os.getenv("LLM_API_BASE")
+llm_temperature = float(os.getenv("LLM_TEMPERATURE", "0.1"))
+
+if not llm_model or not llm_api_key or not llm_api_base:
+    raise ValueError(
+        "Configurazione LLM mancante. "
+        "Imposta LLM_MODEL, LLM_API_KEY e LLM_API_BASE nel file .env."
+    )
+
+Settings.llm = OpenAILike(
+    model=llm_model,
+    api_key=llm_api_key,
+    api_base=llm_api_base,
+    temperature=llm_temperature,
+    is_chat_model=True,
 )
 ```
+
+Questa impostazione consente di separare la logica applicativa dal provider effettivamente utilizzato. La pipeline RAG, il database vettoriale e l'interfaccia Chainlit rimangono invariati anche cambiando modello generativo.
 
 ## Dataset
 
@@ -195,6 +240,10 @@ Qual è l'importo massimo del contributo?
 Quali documenti devono essere presentati?
 ```
 
+```text
+Questo bando è rilevante per un'azienda che opera nell'ambito dell'ingegneria civile?
+```
+
 ## Pipeline RAG
 
 La pipeline attuale segue questi passaggi:
@@ -225,7 +274,7 @@ La pipeline attuale segue questi passaggi:
    Quando l'utente pone una domanda, il sistema recupera i chunk più rilevanti dal database vettoriale.
 
 6. **Generazione della risposta**  
-   I chunk recuperati vengono forniti come contesto al modello LLM, che genera una risposta in italiano.
+   I chunk recuperati vengono forniti come contesto al modello LLM configurato, che genera una risposta in italiano.
 
 7. **Visualizzazione delle fonti**  
    L'interfaccia mostra i documenti utilizzati come fonti per la risposta.
@@ -262,7 +311,8 @@ Limitazioni attuali:
 - supporto OCR per PDF scansionati;
 - metriche di valutazione della qualità del retrieval;
 - confronto tra diversi modelli di embedding;
-- dashboard per monitorare documenti indicizzati e campi estratti.
+- dashboard per monitorare documenti indicizzati e campi estratti;
+- integrazione con server LLM universitari o aziendali.
 
 ## Licenza
 
