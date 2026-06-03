@@ -66,7 +66,7 @@ Esegue le seguenti operazioni:
 ## Requisiti
 
 - Python 3.10 o superiore
-- Una API key DeepSeek
+- Una API key (es OpenAi/Antrophic)
 - Documenti PDF da indicizzare, inseriti nella cartella `./dati_azienda`
 
 ## Installazione
