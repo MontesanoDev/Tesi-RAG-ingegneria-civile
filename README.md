@@ -24,13 +24,20 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 
 ```text
 .
-├── app.py              # Applicazione Chainlit per interrogare il sistema RAG
-├── ingest.py           # Script per indicizzare i documenti in ChromaDB
-├── dati_azienda/       # Cartella contenente i PDF/documenti da indicizzare
-├── chroma_db/          # Database vettoriale locale generato dopo l'ingestione
-├── .env                # Variabili d'ambiente, da non caricare su GitHub
-├── .env.example        # Esempio di configurazione
-├── requirements.txt    # Dipendenze Python
+├── app.py                         # Applicazione Chainlit per interrogare il sistema RAG
+├── ingest.py                      # Script Python per indicizzare i documenti in ChromaDB
+├── dati_azienda/                  # Cartella contenente i PDF/documenti da indicizzare
+├── chroma_db/                     # Database vettoriale locale generato dopo l'ingestione
+├── scripts/                       # Script di utilità per setup, ingestion e avvio
+│   ├── setup_unix.sh              # Setup ambiente e dipendenze su Linux/macOS
+│   ├── setup_windows.ps1          # Setup ambiente e dipendenze su Windows PowerShell
+│   ├── ingest_chroma_unix.sh      # Indicizzazione documenti su Linux/macOS
+│   ├── ingest_chroma_windows.ps1  # Indicizzazione documenti su Windows PowerShell
+│   ├── run_chainlit_unix.sh       # Avvio Chainlit su Linux/macOS
+│   └── run_chainlit_windows.ps1   # Avvio Chainlit su Windows PowerShell
+├── .env                           # Variabili d'ambiente, da non caricare su GitHub
+├── .env.example                   # Esempio di configurazione
+├── requirements.txt               # Dipendenze Python
 └── README.md
 ```
 
@@ -74,6 +81,13 @@ Esegue le seguenti operazioni:
 - Documenti PDF da indicizzare, inseriti nella cartella `./dati_azienda`
 
 ## Installazione
+
+> [!WARNING]
+> La prima installazione può richiedere parecchio tempo, anche **oltre 20 minuti**, a seconda della macchina e della connessione.
+>
+> Durante l'installazione alcune dipendenze possono sembrare ferme o bloccate, soprattutto durante il download/installazione di librerie legate a embeddings, modelli NLP, ChromaDB, Chainlit e componenti di LlamaIndex.
+>
+> In generale, se il terminale non restituisce errori espliciti, **non interrompere subito il processo**: molto probabilmente non è bloccato, sta solo installando pacchetti pesanti.
 
 Creare un ambiente virtuale:
 
@@ -174,6 +188,92 @@ Settings.llm = OpenAILike(
 
 Questa impostazione consente di separare la logica applicativa dal provider effettivamente utilizzato. La pipeline RAG, il database vettoriale e l'interfaccia Chainlit rimangono invariati anche cambiando modello generativo.
 
+## Script di utilità
+
+La repository include alcuni script per semplificare le operazioni più comuni:
+
+- preparazione dell'ambiente Python;
+- installazione delle dipendenze;
+- indicizzazione dei documenti in ChromaDB;
+- avvio dell'interfaccia Chainlit.
+
+Gli script sono disponibili sia per sistemi Unix-like, Linux/macOS, sia per Windows PowerShell.
+
+### Setup dell'ambiente
+
+Su Linux/macOS:
+
+```bash
+chmod +x scripts/setup_unix.sh
+./scripts/setup_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\setup_windows.ps1
+```
+
+Gli script di setup creano o utilizzano l'ambiente virtuale del progetto e installano le dipendenze definite in `requirements.txt`.
+
+> [!WARNING]
+> Il setup iniziale può richiedere anche **più di 20 minuti**.
+>
+> Questo comportamento è normale: il progetto utilizza dipendenze legate a RAG, parsing PDF, database vettoriali, interfacce LLM e modelli di embedding.
+>
+> Alcuni passaggi possono sembrare bloccati perché `pip` sta scaricando, compilando o risolvendo pacchetti pesanti. Se non compare un errore esplicito, attendere il completamento.
+
+### Indicizzazione dei documenti
+
+Prima di avviare l'applicazione, inserire i PDF da analizzare nella cartella:
+
+```text
+dati_azienda/
+```
+
+Poi eseguire lo script di ingestion.
+
+Su Linux/macOS:
+
+```bash
+chmod +x scripts/ingest_chroma_unix.sh
+./scripts/ingest_chroma_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\ingest_chroma_windows.ps1
+```
+
+Questa operazione esegue `ingest.py`, estrae il contenuto dei documenti, genera gli embeddings e ricrea il database vettoriale locale nella cartella `chroma_db`.
+
+### Avvio dell'interfaccia Chainlit
+
+Dopo aver indicizzato i documenti, è possibile avviare l'interfaccia conversazionale.
+
+Su Linux/macOS:
+
+```bash
+chmod +x scripts/run_chainlit_unix.sh
+./scripts/run_chainlit_unix.sh
+```
+
+Su Windows PowerShell:
+
+```powershell
+.\scripts\run_chainlit_windows.ps1
+```
+
+In alternativa, è sempre possibile avviare manualmente l'applicazione con:
+
+```bash
+chainlit run app.py
+```
+
+Gli script non modificano la logica del progetto: servono solo a rendere più semplice e ripetibile l'esecuzione delle varie fasi del prototipo.
+
+
 ## Dataset
 
 Inserire i documenti da indicizzare nella cartella `dati_azienda`:
@@ -191,9 +291,11 @@ I documenti pubblici utilizzati per il test non devono necessariamente essere re
 
 ## Utilizzo
 
+Il progetto può essere eseguito sia tramite comandi manuali sia tramite gli script presenti nella cartella `scripts/`.
+
 ### 1. Indicizzazione dei documenti
 
-Eseguire lo script di ingestione:
+Eseguire lo script di ingestione manualmente:
 
 ```bash
 python ingest.py
@@ -210,7 +312,7 @@ Al termine dell'esecuzione viene stampato il numero di chunk salvati nel databas
 
 ### 2. Avvio dell'applicazione Chainlit
 
-Eseguire:
+Eseguire manualmente:
 
 ```bash
 chainlit run app.py
@@ -302,7 +404,7 @@ Limitazioni attuali:
 - eventuali PDF scansionati potrebbero richiedere OCR prima dell'ingestione;
 - il modulo di ricerca web tramite agenti non è ancora implementato.
 
-## Possibili sviluppi futuri
+## Sviluppi futuri
 
 - ricerca automatica di bandi regionali tramite agenti web;
 - estrazione strutturata di metadati dai bandi;
