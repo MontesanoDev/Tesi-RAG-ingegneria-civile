@@ -43,7 +43,7 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 
 ## Componenti principali
 
-### `ingest.py`
+### `createdb.py`
 
 Questo script prepara la base documentale del sistema.
 
