@@ -25,7 +25,7 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 ```text
 .
 ├── app.py                         # Applicazione Chainlit per interrogare il sistema RAG
-├── ingest.py                      # Script Python per indicizzare i documenti in ChromaDB
+├── createdb.py                    # Script Python per indicizzare i documenti in ChromaDB
 ├── dati_azienda/                  # Cartella contenente i PDF/documenti da indicizzare
 ├── chroma_db/                     # Database vettoriale locale generato dopo l'ingestione
 ├── scripts/                       # Script per installazione, ingestion e avvio
