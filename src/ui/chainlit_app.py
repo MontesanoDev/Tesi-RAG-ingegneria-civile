@@ -72,6 +72,17 @@ async def _send_sources(sources: list[dict]) -> None:
     await cl.Message(content="\n".join(lines)).send()
 
 
+async def _send_status(content: str, author: str) -> cl.Message:
+    msg = cl.Message(content=content, author=author)
+    await msg.send()
+    return msg
+
+
+async def _update_message(message: cl.Message, content: str) -> None:
+    message.content = content
+    await message.update()
+
+
 @cl.on_chat_start
 async def start():
     _ensure_data_dir()
@@ -127,28 +138,40 @@ async def main(message: cl.Message):
         return
 
     if content == "/index":
+        status_msg = await _send_status(
+            "Indicizzazione in corso: leggo i PDF, genero gli embeddings e aggiorno ChromaDB...",
+            author="Indice",
+        )
         try:
             result = await cl.make_async(build_or_update_index)()
             cl.user_session.set("rag_engine", None)
-            await cl.Message(
-                content=(
+            await _update_message(
+                status_msg,
+                (
                     f"{result['message']}\n"
                     f"- PDF: {result['pdf_count']}\n"
                     f"- Chunk indicizzati: {result['chunks']}\n"
                     f"- Collection: `{result['collection']}`"
-                )
-            ).send()
+                ),
+            )
         except Exception as exc:
-            await cl.Message(content=f"Errore durante l'indicizzazione: {exc}").send()
+            await _update_message(
+                status_msg,
+                f"Errore durante l'indicizzazione: {exc}",
+            )
         return
 
     if content == "/checklist":
+        status_msg = await _send_status(
+            "Sto generando la checklist: recupero i requisiti del bando e preparo il Markdown...",
+            author="Checklist",
+        )
         try:
             engine = RagEngine(similarity_top_k=12, streaming=False)
             result = await cl.make_async(generate_checklist)(engine)
             markdown = result["markdown"]
             cl.user_session.set("last_checklist", markdown)
-            await cl.Message(content=markdown, author="Checklist").send()
+            await _update_message(status_msg, markdown)
             if not result["company_profile_loaded"]:
                 await cl.Message(
                     content=(
@@ -159,7 +182,10 @@ async def main(message: cl.Message):
                 ).send()
             await _send_sources(result["sources"])
         except Exception as exc:
-            await cl.Message(content=f"Errore nella generazione checklist: {exc}").send()
+            await _update_message(
+                status_msg,
+                f"Errore nella generazione checklist: {exc}",
+            )
         return
 
     if content == "/save":
@@ -176,14 +202,19 @@ async def main(message: cl.Message):
             await cl.Message(content=f"Errore durante il salvataggio: {exc}").send()
         return
 
+    status_msg = await _send_status(
+        "Sto recuperando i passaggi rilevanti dal bando e preparando la risposta...",
+        author="RAG",
+    )
     try:
         engine = _get_engine()
         result = await cl.make_async(engine.query)(content)
         response = result["response"]
-        msg = cl.Message(content="", author="RAG")
+        status_msg.content = ""
+        await status_msg.update()
         for token in response.response_gen:
-            await msg.stream_token(token)
-        await msg.send()
+            await status_msg.stream_token(token)
+        await status_msg.update()
         await _send_sources(result["sources"])
     except Exception as exc:
-        await cl.Message(content=f"Errore nella query: {exc}").send()
+        await _update_message(status_msg, f"Errore nella query: {exc}")

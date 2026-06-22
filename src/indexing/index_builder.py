@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import chromadb
+from chromadb.errors import NotFoundError
 from llama_index.core import Settings, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -116,7 +117,7 @@ def build_or_update_index(
     db = chromadb.PersistentClient(path=str(index_path))
     try:
         db.delete_collection(collection_name)
-    except ValueError:
+    except NotFoundError:
         pass
     collection = db.get_or_create_collection(collection_name)
 
