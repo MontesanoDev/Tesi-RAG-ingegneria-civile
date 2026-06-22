@@ -212,6 +212,7 @@ data/bandi/*
 !data/bandi/.gitkeep
 outputs/checklist/*
 !outputs/checklist/.gitkeep
+outputs/cache/
 
 # PyPI configuration file
 .pypirc

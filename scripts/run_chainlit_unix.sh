@@ -34,14 +34,14 @@ compatible_venv_path() {
   printf '%s\n' "$project_root/.venv"
 }
 
-assert_env_ready() {
+warn_env_status() {
   local env_path="$project_root/.env"
   local missing=()
   local key
 
   if [[ ! -f "$env_path" ]]; then
-    echo ".env non trovato. Crea .env partendo da .env.example e compila LLM_MODEL, LLM_API_KEY, LLM_API_BASE prima di avviare Chainlit." >&2
-    exit 1
+    echo "Avviso: .env non trovato. Chainlit parte comunque; le domande RAG libere richiederanno LLM_MODEL, LLM_API_KEY e LLM_API_BASE." >&2
+    return 0
   fi
 
   for key in LLM_MODEL LLM_API_KEY LLM_API_BASE; do
@@ -51,8 +51,7 @@ assert_env_ready() {
   done
 
   if (( ${#missing[@]} > 0 )); then
-    echo "Completa .env prima di avviare Chainlit. Mancano: ${missing[*]}" >&2
-    exit 1
+    echo "Avviso: .env incompleto. Mancano: ${missing[*]}. Le domande RAG libere potrebbero fallire." >&2
   fi
 }
 
@@ -63,7 +62,7 @@ if [[ ! -x "$venv_path/bin/python" || ! -x "$venv_path/bin/chainlit" ]]; then
   exit 1
 fi
 
-assert_env_ready
+warn_env_status
 
 host="${HOST:-127.0.0.1}"
 port="${PORT:-8000}"

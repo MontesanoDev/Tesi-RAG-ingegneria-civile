@@ -16,6 +16,7 @@ DEFAULT_DATA_DIR = Path("data/bandi")
 DEFAULT_INDEX_DIR = Path("chroma_db")
 DEFAULT_COLLECTION = "bandi_mvp"
 DEFAULT_MANIFEST = "index_manifest.json"
+INDEX_SCHEMA_VERSION = 3
 
 
 def configure_embedding_model() -> None:
@@ -83,6 +84,7 @@ def index_exists(
     return (
         manifest.get("fingerprint") == _fingerprint(inventory)
         and manifest.get("collection") == collection_name
+        and manifest.get("schema_version") == INDEX_SCHEMA_VERSION
         and collection.count() > 0
     )
 
@@ -126,6 +128,7 @@ def build_or_update_index(
     VectorStoreIndex.from_documents(documents, storage_context=storage_context)
 
     manifest = {
+        "schema_version": INDEX_SCHEMA_VERSION,
         "collection": collection_name,
         "fingerprint": current_fingerprint,
         "pdfs": inventory,

@@ -1,7 +1,22 @@
+import re
 from pathlib import Path
 
 from llama_index.core import Document
 from pypdf import PdfReader
+
+from src.source_display import display_name_for_file, format_display_source
+
+
+SECTION_RE = re.compile(r"^\s*(\d+(?:\.\d+)*\.?)\s+(.{4,120})$")
+
+
+def _detect_section(text: str) -> str | None:
+    for line in text.splitlines()[:12]:
+        match = SECTION_RE.match(line.strip())
+        if match:
+            title = re.sub(r"\s+", " ", match.group(2)).strip()
+            return f"{match.group(1).rstrip('.')} {title}"
+    return None
 
 
 def extract_pdf_documents(pdf_path: str | Path) -> list[Document]:
@@ -14,6 +29,7 @@ def extract_pdf_documents(pdf_path: str | Path) -> list[Document]:
 
     reader = PdfReader(str(path))
     documents: list[Document] = []
+    display_name = display_name_for_file(path.name)
 
     for page_index, page in enumerate(reader.pages, start=1):
         text = page.extract_text() or ""
@@ -21,15 +37,22 @@ def extract_pdf_documents(pdf_path: str | Path) -> list[Document]:
         if not text:
             continue
 
+        section_title = _detect_section(text)
+        metadata = {
+            "file_name": path.name,
+            "original_filename": path.name,
+            "display_name": display_name,
+            "file_path": str(path),
+            "page": page_index,
+            "section": section_title,
+            "section_title": section_title,
+        }
+        metadata["source"] = format_display_source(metadata)
+
         documents.append(
             Document(
                 text=text,
-                metadata={
-                    "file_name": path.name,
-                    "file_path": str(path),
-                    "page": page_index,
-                    "source": f"{path.name}, pagina {page_index}",
-                },
+                metadata=metadata,
             )
         )
 

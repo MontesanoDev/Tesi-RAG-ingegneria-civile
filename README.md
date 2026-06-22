@@ -14,8 +14,9 @@ Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, 
 - Generazione di embeddings multilingua tramite `sentence-transformers`
 - Salvataggio dei vettori in locale con ChromaDB
 - Orchestrazione della pipeline RAG tramite LlamaIndex
-- Query libera grounded sul bando
-- Generazione checklist Markdown revisionabile
+- Query libera grounded sul bando, con risposta dai `BandoFacts` quando il topic e' noto
+- Estrazione riutilizzabile dei fatti principali del bando (`BandoFacts`)
+- Generazione riepilogo operativo e checklist Markdown dalla stessa base dati
 - Evidenza di informazioni mancanti o da verificare
 - Generazione delle risposte tramite modello LLM configurabile
 - Supporto a endpoint compatibili con API in stile OpenAI
@@ -34,7 +35,9 @@ Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, 
 │   ├── parsing/pdf_parser.py      # Estrazione testo dai PDF con metadati pagina
 │   ├── indexing/index_builder.py  # Chunking e indicizzazione ChromaDB
 │   ├── retrieval/rag_engine.py    # Query grounded tramite LlamaIndex
+│   ├── extraction/                # Estrazione section-aware dei fatti del bando
 │   ├── generation/checklist_generator.py
+│   ├── generation/summary_generator.py
 │   └── ui/chainlit_app.py         # UI minima Chainlit
 ├── data/
 │   ├── bandi/                     # PDF dei bandi caricati manualmente
@@ -67,12 +70,19 @@ Esegue le seguenti operazioni:
 3. divide il testo in frammenti tramite `SentenceSplitter`;
 4. genera embeddings usando `paraphrase-multilingual-MiniLM-L12-v2`;
 5. salva i vettori in ChromaDB locale;
-6. evita di ricreare l'indice se i PDF non sono cambiati, salvo opzione `--force`.
+6. evita di ricreare l'indice se i PDF non sono cambiati, salvo opzione `--force`;
+7. con `--reset` elimina anche la cache facts in `outputs/cache/bando_facts.json`.
 
 Esempio:
 
 ```bash
 python creadb.py --data-dir data/bandi
+```
+
+Reset completo indice + cache facts:
+
+```bash
+bash scripts/reset_db_unix.sh
 ```
 
 ### `app.py`
@@ -84,9 +94,11 @@ Esegue le seguenti operazioni:
 1. permette di caricare o selezionare un PDF;
 2. lancia la costruzione indice con `/index`;
 3. esegue query libere sul bando;
-4. genera checklist con `/checklist`;
-5. salva l'ultima checklist con `/save`;
-6. mostra le fonti recuperate quando disponibili.
+4. genera riepiloghi section-aware con `riassumi il bando`;
+5. genera checklist con `/checklist`;
+6. mostra i fatti estratti con `/facts`;
+7. salva l'ultima checklist con `/save`;
+8. mostra le fonti recuperate quando disponibili.
 
 La logica applicativa resta nei moduli sotto `src/`; la UI orchestra soltanto i componenti.
 
