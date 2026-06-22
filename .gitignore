@@ -206,6 +206,13 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Project generated data
+chroma_db/
+data/bandi/*
+!data/bandi/.gitkeep
+outputs/checklist/*
+!outputs/checklist/.gitkeep
+
 # PyPI configuration file
 .pypirc
 

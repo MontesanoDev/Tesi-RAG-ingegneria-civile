@@ -54,19 +54,19 @@ if (-not (Test-Path $venvPython)) {
     Fail "Virtualenv Windows non pronto. Esegui prima: .\scripts\setup_windows.ps1"
 }
 
-$dataDir = Join-Path $projectRoot "dati_azienda"
+$dataDir = Join-Path (Join-Path $projectRoot "data") "bandi"
 if (-not (Test-Path $dataDir)) {
-    Fail "Cartella dati_azienda non trovata."
+    Fail "Cartella data/bandi non trovata."
 }
 
-$files = Get-ChildItem -Path $dataDir -File -Recurse
+$files = Get-ChildItem -Path $dataDir -File -Recurse -Filter "*.pdf"
 if ($files.Count -eq 0) {
-    Fail "Nessun documento trovato in dati_azienda. Inserisci i file da indicizzare e rilancia lo script."
+    Fail "Nessun PDF trovato in data/bandi. Inserisci i PDF da indicizzare e rilancia lo script."
 }
 
 $env:VIRTUAL_ENV = $venvPath
 $env:PATH = "$(Join-Path $venvPath 'Scripts');$env:PATH"
 
 Write-Host "Ambiente attivo: $venvPath"
-Write-Host "Rigenero chroma_db da dati_azienda. Il vecchio database locale verra' sostituito."
+Write-Host "Aggiorno chroma_db dai PDF in data/bandi."
 & $venvPython creadb.py

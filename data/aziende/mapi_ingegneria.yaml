@@ -1,0 +1,24 @@
+azienda:
+  nome: MAPI Ingegneria S.r.l.
+  settore: ingegneria civile, infrastrutture e progettazione tecnica
+  sede: Puglia
+  dimensione: PMI
+  attività_principali:
+    - progettazione di opere pubbliche
+    - direzione lavori
+    - consulenza tecnica
+    - gestione pratiche autorizzative
+    - supporto a enti pubblici e privati
+  certificazioni:
+    - ISO 9001
+    - eventuali certificazioni da verificare
+  esperienze_precedenti:
+    - progettazione infrastrutturale
+    - interventi di riqualificazione urbana
+    - opere stradali e reti tecnologiche
+  dati_mancanti:
+    - fatturato
+    - numero dipendenti
+    - certificazioni effettive
+    - referenze documentabili
+    - curriculum tecnico

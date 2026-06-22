@@ -116,26 +116,56 @@ Show-Banner
 $projectRoot = Get-ProjectRoot
 Set-Location $projectRoot
 
+$uv = Get-Command "uv" -ErrorAction SilentlyContinue
+if ($uv) {
+    $packageManager = "uv"
+    Write-Host "Gestore dipendenze: uv"
+} else {
+    $packageManager = "pip"
+    Write-Host "Gestore dipendenze: pip (uv non trovato)"
+}
+
 $venvPath = Get-CompatibleVenvPath -ProjectRoot $projectRoot
 $venvPython = Join-Path $venvPath "Scripts\python.exe"
 
 if (-not (Test-Path $venvPython)) {
-    $python = Find-Python
     Write-Host "Creo virtualenv Windows in: $venvPath"
-    Write-Host "Python usato: $($python.Path)"
-    & $python.Exe @($python.Args) -m venv $venvPath
+    if ($packageManager -eq "uv") {
+        $pythonRequest = if ($env:PYTHON) { $env:PYTHON } else { "3.12" }
+        Write-Host "Python richiesto a uv: $pythonRequest"
+        & uv venv --python $pythonRequest $venvPath
+    } else {
+        $python = Find-Python
+        Write-Host "Python usato: $($python.Path)"
+        & $python.Exe @($python.Args) -m venv $venvPath
+    }
 } else {
     Write-Host "Virtualenv gia' presente: $venvPath"
 }
 
 Write-Host "Installo/aggiorno le dipendenze..."
-& $venvPython -m pip install -r requirements.txt
+Write-Host "Installo PyTorch CPU-only per evitare il download delle librerie NVIDIA/CUDA..."
+if ($packageManager -eq "uv") {
+    & uv pip install --python $venvPython torch --index-url https://download.pytorch.org/whl/cpu
+    & uv pip install --python $venvPython -r requirements.txt
+} else {
+    & $venvPython -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Fail "pip non disponibile. Installa uv oppure una distribuzione Python che includa pip."
+    }
+    & $venvPython -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+    & $venvPython -m pip install -r requirements.txt
+}
 
 Write-Host "Controllo conflitti tra pacchetti..."
-& $venvPython -m pip check
+if ($packageManager -eq "uv") {
+    & uv pip check --python $venvPython
+} else {
+    & $venvPython -m pip check
+}
 
 Write-Host "Controllo import principali..."
-& $venvPython -c "from llama_index.llms.openai_like import OpenAILike; from llama_index.embeddings.huggingface import HuggingFaceEmbedding; import chainlit, chromadb; print('Import OK')"
+& $venvPython -c "from llama_index.llms.openai_like import OpenAILike; from llama_index.embeddings.huggingface import HuggingFaceEmbedding; import chainlit, chromadb, torch; print(f'Import OK - PyTorch CUDA: {torch.version.cuda or ""non installata (CPU-only)""}')"
 
 Test-EnvFile -ProjectRoot $projectRoot
 

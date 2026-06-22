@@ -65,12 +65,9 @@ fi
 
 assert_env_ready
 
-# shellcheck disable=SC1091
-source "$venv_path/bin/activate"
-
 host="${HOST:-127.0.0.1}"
 port="${PORT:-8000}"
 
-echo "Ambiente attivo: $venv_path"
+echo "Ambiente usato: $venv_path"
 echo "Avvio Chainlit su http://$host:$port"
-chainlit run app.py --host "$host" --port "$port"
+"$venv_path/bin/chainlit" run app.py --host "$host" --port "$port"

@@ -1,11 +1,8 @@
 chainlit
-llama-index
+llama-index-core
 llama-index-vector-stores-chroma
 chromadb
-llama-index-llms-openai
 llama-index-llms-openai-like
 llama-index-embeddings-huggingface
-llama-index-readers-file
-pymupdf
 pypdf
 python-dotenv

@@ -1,18 +1,22 @@
-# Sistema RAG per Bandi di Ingegneria Civile
+# MVP Chainlit/RAG per supporto alla candidatura a bandi
 
 Prototipo sviluppato per la tesi triennale in Informatica L-31 presso l'Università degli Studi di Bari Aldo Moro.
 
-Il progetto implementa una pipeline di **Retrieval-Augmented Generation (RAG)** per interrogare documenti amministrativi italiani, con particolare attenzione a bandi regionali relativi a opere pubbliche, infrastrutture e ambiti affini all'ingegneria civile.
+Il progetto implementa una pipeline locale per l'analisi preliminare di un bando e la generazione di una checklist operativa revisionabile. Il RAG non viene trattato come soluzione completa, ma come componente centrale di retrieval e grounding dentro una pipeline piu' ampia.
 
-Il sistema indicizza documenti in formato PDF all'interno di un database vettoriale locale e mette a disposizione un'interfaccia conversazionale tramite Chainlit.
+Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, permette interrogazioni grounded sul documento e produce una checklist Markdown con requisiti, allegati, scadenze, vincoli, informazioni aziendali necessarie e punti da verificare.
 
 ## Funzionalità principali
 
-- Ingestione di documenti PDF da una cartella locale
-- Estrazione e suddivisione del testo in chunk
+- Selezione o caricamento manuale di PDF del bando
+- Estrazione testo pagina per pagina con metadati di fonte
+- Suddivisione del testo in chunk
 - Generazione di embeddings multilingua tramite `sentence-transformers`
 - Salvataggio dei vettori in locale con ChromaDB
 - Orchestrazione della pipeline RAG tramite LlamaIndex
+- Query libera grounded sul bando
+- Generazione checklist Markdown revisionabile
+- Evidenza di informazioni mancanti o da verificare
 - Generazione delle risposte tramite modello LLM configurabile
 - Supporto a endpoint compatibili con API in stile OpenAI
 - Possibilità di utilizzare provider esterni o server universitari/aziendali
@@ -24,9 +28,18 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 
 ```text
 .
-├── app.py                         # Applicazione Chainlit per interrogare il sistema RAG
-├── createdb.py                    # Script Python per indicizzare i documenti in ChromaDB
-├── dati_azienda/                  # Cartella contenente i PDF/documenti da indicizzare
+├── app.py                         # Wrapper Chainlit verso src/ui/chainlit_app.py
+├── creadb.py                      # Wrapper CLI per costruire/aggiornare l'indice
+├── src/
+│   ├── parsing/pdf_parser.py      # Estrazione testo dai PDF con metadati pagina
+│   ├── indexing/index_builder.py  # Chunking e indicizzazione ChromaDB
+│   ├── retrieval/rag_engine.py    # Query grounded tramite LlamaIndex
+│   ├── generation/checklist_generator.py
+│   └── ui/chainlit_app.py         # UI minima Chainlit
+├── data/
+│   ├── bandi/                     # PDF dei bandi caricati manualmente
+│   └── aziende/                   # Profilo aziendale simulato, es. mapi_ingegneria.yaml
+├── outputs/checklist/             # Checklist Markdown salvate dalla UI
 ├── chroma_db/                     # Database vettoriale locale generato dopo l'ingestione
 ├── scripts/                       # Script per installazione, ingestion e avvio
 │   ├── setup_unix.sh              # Setup ambiente e dipendenze su Linux/macOS
@@ -43,42 +56,46 @@ Il sistema indicizza documenti in formato PDF all'interno di un database vettori
 
 ## Componenti principali
 
-### `createdb.py`
+### `creadb.py`
 
-Questo script prepara la base documentale del sistema.
+Questo script prepara l'indice locale del bando.
 
 Esegue le seguenti operazioni:
 
-1. carica i documenti presenti nella cartella `./dati_azienda`;
-2. divide il testo in frammenti più piccoli tramite `SentenceSplitter`;
-3. genera gli embeddings usando il modello `paraphrase-multilingual-MiniLM-L12-v2`;
-4. salva i vettori ottenuti all'interno di un database ChromaDB persistente;
-5. ricrea il database vettoriale da zero a ogni esecuzione.
+1. carica i PDF presenti in `./data/bandi`;
+2. estrae testo e metadati pagina;
+3. divide il testo in frammenti tramite `SentenceSplitter`;
+4. genera embeddings usando `paraphrase-multilingual-MiniLM-L12-v2`;
+5. salva i vettori in ChromaDB locale;
+6. evita di ricreare l'indice se i PDF non sono cambiati, salvo opzione `--force`.
 
-Questo script deve essere eseguito ogni volta che vengono aggiunti, rimossi o modificati i documenti da indicizzare.
+Esempio:
+
+```bash
+python creadb.py --data-dir data/bandi
+```
 
 ### `app.py`
 
-Questo script avvia l'interfaccia conversazionale con Chainlit.
+Questo script avvia l'interfaccia minimale Chainlit.
 
 Esegue le seguenti operazioni:
 
-1. carica il database ChromaDB esistente da `./chroma_db`;
-2. ricostruisce un indice LlamaIndex a partire dal vector store;
-3. configura il modello LLM tramite variabili d'ambiente;
-4. crea un query engine con:
-   - streaming della risposta;
-   - `similarity_top_k=8`;
-   - prompt personalizzato in italiano per documenti amministrativi;
-5. invia le domande dell'utente alla pipeline RAG;
-6. genera la risposta tramite il modello LLM configurato;
-7. mostra i documenti sorgente utilizzati nella risposta.
+1. permette di caricare o selezionare un PDF;
+2. lancia la costruzione indice con `/index`;
+3. esegue query libere sul bando;
+4. genera checklist con `/checklist`;
+5. salva l'ultima checklist con `/save`;
+6. mostra le fonti recuperate quando disponibili.
+
+La logica applicativa resta nei moduli sotto `src/`; la UI orchestra soltanto i componenti.
 
 ## Requisiti
 
-- Python 3.10 o superiore
+- `uv` (consigliato), oppure Python 3.10 o superiore con `pip`
 - Una API key per il provider LLM scelto, oppure credenziali/endpoint di un server universitario o aziendale
-- Documenti PDF da indicizzare, inseriti nella cartella `./dati_azienda`
+- Documenti PDF da indicizzare, inseriti nella cartella `./data/bandi`
+- Profilo aziendale simulato opzionale in `./data/aziende/mapi_ingegneria.yaml`
 
 ## Installazione
 
@@ -106,13 +123,27 @@ Su Windows PowerShell:
 .\scripts\setup_windows.ps1
 ```
 
-Gli script di setup creano o utilizzano l'ambiente virtuale del progetto e installano le dipendenze presenti in `requirements.txt`.
+Gli script di setup usano `uv` quando è disponibile, con fallback automatico a `pip`.
+Creano o utilizzano l'ambiente virtuale del progetto e installano le dipendenze presenti in `requirements.txt`.
+Con `uv` non è necessario avere `pip`; se Python 3.12 non è disponibile, `uv` può installarlo automaticamente.
+Su Linux e Windows installano prima la versione CPU-only di PyTorch, evitando il download non necessario delle librerie NVIDIA/CUDA.
 
 ### Installazione manuale
 
-In alternativa, è possibile installare il progetto manualmente.
+In alternativa, è possibile installare il progetto manualmente con `uv` oppure `pip`.
 
-Creare un ambiente virtuale:
+Con `uv`:
+
+```bash
+uv venv --python 3.12
+uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv/bin/python -r requirements.txt
+```
+
+Su Windows sostituire `.venv/bin/python` con `.venv\Scripts\python.exe`.
+Su macOS non è necessario il comando separato per PyTorch CPU-only.
+
+Con `pip`, creare un ambiente virtuale:
 
 ```bash
 python -m venv .venv
@@ -132,26 +163,37 @@ Su Windows:
 .venv\Scripts\activate
 ```
 
-Installare le dipendenze:
+Su Linux e Windows, installare prima PyTorch CPU-only:
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+Poi installare le altre dipendenze:
 
 ```bash
 pip install -r requirements.txt
 ```
 
+Su macOS è sufficiente eseguire direttamente `pip install -r requirements.txt`.
+
 Esempio di file `requirements.txt`:
 
 ```txt
 chainlit
-llama-index
+llama-index-core
 llama-index-vector-stores-chroma
 chromadb
 llama-index-llms-openai-like
 llama-index-embeddings-huggingface
-llama-index-readers-file
-pymupdf
 pypdf
 python-dotenv
 ```
+
+Il progetto installa `llama-index-core` e solo le integrazioni effettivamente usate,
+evitando il metapacchetto `llama-index` e le sue integrazioni starter aggiuntive.
+I PDF vengono letti direttamente con `pypdf`, senza il plugin generalista
+`llama-index-readers-file`.
 
 ## Configurazione del modello LLM
 
@@ -223,7 +265,7 @@ Oltre agli script di installazione descritti nella sezione precedente, la reposi
 Prima di avviare l'applicazione, inserire i PDF da analizzare nella cartella:
 
 ```text
-dati_azienda/
+data/bandi/
 ```
 
 Poi eseguire lo script di ingestion.
@@ -241,7 +283,7 @@ Su Windows PowerShell:
 .\scripts\ingest_chroma_windows.ps1
 ```
 
-Questa operazione esegue `ingest.py`, estrae il contenuto dei documenti, genera gli embeddings e ricrea il database vettoriale locale nella cartella `chroma_db`.
+Questa operazione esegue `creadb.py`, estrae il contenuto dei PDF, genera gli embeddings e aggiorna il database vettoriale locale nella cartella `chroma_db`.
 
 ### Avvio dell'interfaccia Chainlit
 
@@ -270,16 +312,24 @@ Gli script non modificano la logica del progetto: servono solo a rendere più se
 
 ## Dataset
 
-Inserire i documenti da indicizzare nella cartella `dati_azienda`:
+Inserire i PDF dei bandi nella cartella `data/bandi`:
 
 ```text
-dati_azienda/
+data/bandi/
 ├── bando_1.pdf
 ├── bando_2.pdf
 └── bando_3.pdf
 ```
 
 Il progetto è pensato per lavorare con documenti amministrativi reali, generalmente pubblicati dagli enti pubblici in formato PDF.
+
+Il profilo aziendale simulato può essere salvato in:
+
+```text
+data/aziende/mapi_ingegneria.yaml
+```
+
+Questo file non viene indicizzato come bando: viene usato come contesto strutturato per capire quali informazioni aziendali risultano già disponibili e quali restano da verificare.
 
 I documenti pubblici utilizzati per il test non devono necessariamente essere redistribuiti direttamente nella repository. Quando opportuno, la repository può contenere solo link ufficiali alle fonti e metadati estratti.
 
@@ -306,15 +356,15 @@ Su Windows PowerShell:
 In alternativa, eseguire manualmente:
 
 ```bash
-python ingest.py
+python creadb.py
 ```
 
 Lo script:
 
-- legge i documenti presenti in `./dati_azienda`;
+- legge i PDF presenti in `./data/bandi`;
 - li suddivide in chunk;
 - genera gli embeddings;
-- ricrea il database locale ChromaDB in `./chroma_db`.
+- crea o aggiorna il database locale ChromaDB in `./chroma_db`.
 
 Al termine dell'esecuzione viene stampato il numero di chunk salvati nel database.
 
@@ -340,7 +390,16 @@ In alternativa, eseguire manualmente:
 chainlit run app.py
 ```
 
-Successivamente aprire l'interfaccia Chainlit nel browser e porre domande sui documenti indicizzati.
+Successivamente aprire l'interfaccia Chainlit nel browser. I comandi principali sono:
+
+```text
+/index
+/checklist
+/save
+/bando percorso/file.pdf
+```
+
+Una domanda senza prefisso viene trattata come query libera sul bando indicizzato.
 
 ## Esempi di domande
 
@@ -365,6 +424,10 @@ Quali documenti devono essere presentati?
 ```
 
 ```text
+/checklist
+```
+
+```text
 Questo bando è rilevante per un'azienda che opera nell'ambito dell'ingegneria civile?
 ```
 
@@ -373,7 +436,7 @@ Questo bando è rilevante per un'azienda che opera nell'ambito dell'ingegneria c
 La pipeline attuale segue questi passaggi:
 
 1. **Ingestione dei documenti**  
-   I documenti vengono caricati dalla cartella locale `dati_azienda`.
+   I documenti vengono caricati dalla cartella locale `data/bandi`.
 
 2. **Chunking**  
    Il testo viene suddiviso in frammenti più piccoli tramite:
@@ -421,21 +484,20 @@ Il progetto è un prototipo sperimentale e non un sistema pronto per la produzio
 Limitazioni attuali:
 
 - i documenti vengono selezionati manualmente;
-- il database vettoriale viene ricreato da zero durante l'ingestione;
-- la visualizzazione delle fonti mostra il nome del documento, non ancora la citazione precisa per pagina;
+- il profilo aziendale è simulato e va completato a mano;
 - eventuali PDF scansionati potrebbero richiedere OCR prima dell'ingestione;
-- il modulo di ricerca web tramite agenti non è ancora implementato.
+- le fonti dipendono dai metadati estraibili dal PDF e dalla qualita' del testo recuperato;
+- la checklist e' un supporto revisionabile, non una candidatura completa.
 
 ## Possibili sviluppi futuri
 
-- ricerca automatica di bandi regionali tramite agenti web;
+- confronto tra il bando e un profilo aziendale piu' completo;
+- verifica preliminare automatica dei requisiti di ammissibilita';
 - estrazione strutturata di metadati dai bandi;
-- esportazione dei risultati in Excel/CSV;
-- citazioni puntuali a livello di pagina;
+- esportazione dei risultati in Markdown, DOCX o PDF;
 - supporto OCR per PDF scansionati;
-- metriche di valutazione della qualità del retrieval;
+- metriche di valutazione della qualita' del retrieval;
 - confronto tra diversi modelli di embedding;
-- dashboard per monitorare documenti indicizzati e campi estratti;
 - integrazione con server LLM universitari o aziendali.
 
 ## Licenza

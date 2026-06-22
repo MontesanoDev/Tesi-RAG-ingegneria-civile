@@ -77,26 +77,60 @@ check_env_file() {
   fi
 }
 
+if command -v uv >/dev/null 2>&1; then
+  package_manager="uv"
+  echo "Gestore dipendenze: uv"
+else
+  package_manager="pip"
+  echo "Gestore dipendenze: pip (uv non trovato)"
+fi
+
 venv_path="$(compatible_venv_path)"
 venv_python="$venv_path/bin/python"
 
 if [[ ! -x "$venv_python" ]]; then
-  python_bin="$(find_python)"
   echo "Creo virtualenv Linux/macOS in: $venv_path"
-  echo "Python usato: $python_bin"
-  "$python_bin" -m venv "$venv_path"
+  if [[ "$package_manager" == "uv" ]]; then
+    python_request="${PYTHON:-3.12}"
+    echo "Python richiesto a uv: $python_request"
+    uv venv --python "$python_request" "$venv_path"
+  else
+    python_bin="$(find_python)"
+    echo "Python usato: $python_bin"
+    "$python_bin" -m venv "$venv_path"
+  fi
 else
   echo "Virtualenv gia' presente: $venv_path"
 fi
 
 echo "Installo/aggiorno le dipendenze..."
-"$venv_python" -m pip install -r requirements.txt
+if [[ "$package_manager" == "uv" ]]; then
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    echo "Installo PyTorch CPU-only per evitare il download delle librerie NVIDIA/CUDA..."
+    uv pip install --python "$venv_python" torch --index-url https://download.pytorch.org/whl/cpu
+  fi
+  uv pip install --python "$venv_python" -r requirements.txt
+else
+  if ! "$venv_python" -m pip --version >/dev/null 2>&1; then
+    echo "pip non disponibile. Installa uv oppure una distribuzione Python che includa pip." >&2
+    exit 1
+  fi
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    echo "Installo PyTorch CPU-only per evitare il download delle librerie NVIDIA/CUDA..."
+    "$venv_python" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+  fi
+  "$venv_python" -m pip install -r requirements.txt
+fi
 
 echo "Controllo conflitti tra pacchetti..."
-"$venv_python" -m pip check
+if [[ "$package_manager" == "uv" ]]; then
+  uv pip check --python "$venv_python"
+else
+  "$venv_python" -m pip check
+fi
 
 echo "Controllo import principali..."
-"$venv_python" -c "from llama_index.llms.openai_like import OpenAILike; from llama_index.embeddings.huggingface import HuggingFaceEmbedding; import chainlit, chromadb; print('Import OK')"
+"$venv_python" -c "from llama_index.llms.openai_like import OpenAILike; from llama_index.embeddings.huggingface import HuggingFaceEmbedding; import chainlit, chromadb, torch; print(f'Import OK - PyTorch CUDA: {torch.version.cuda or \"non installata (CPU-only)\"}')"
 
 check_env_file
 
