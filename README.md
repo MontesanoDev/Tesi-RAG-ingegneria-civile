@@ -402,12 +402,18 @@ In alternativa, eseguire manualmente:
 chainlit run app.py
 ```
 
-Successivamente aprire l'interfaccia Chainlit nel browser. I comandi principali sono:
+Successivamente aprire l'interfaccia Chainlit nel browser. La schermata iniziale resta pulita: per vedere i comandi disponibili basta digitare `/` nel composer.
+
+I comandi principali sono:
 
 ```text
 /index
 /checklist
+/facts
+/summary
 /save
+/checkpoint
+/profile
 /bando percorso/file.pdf
 ```
 

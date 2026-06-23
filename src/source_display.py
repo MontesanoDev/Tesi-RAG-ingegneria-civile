@@ -33,7 +33,7 @@ def display_name_for_file(file_name: str | None) -> str:
 
     stem = Path(name).stem
     if UUID_FILENAME_RE.match(name):
-        return "Bando caricato"
+        return "Avviso Edilizia Scolastica Puglia 2025"
 
     normalized = re.sub(r"[_-]+", " ", stem).strip()
     normalized = re.sub(r"\s+", " ", normalized)
@@ -46,8 +46,14 @@ def format_display_source(metadata: dict[str, Any]) -> str:
     fallback_file_name = source_match.group("file") if source_match else None
     fallback_page = int(source_match.group("page")) if source_match else None
 
-    display_name = metadata.get("display_name") or display_name_for_file(
+    metadata_display_name = metadata.get("display_name")
+    file_display_name = display_name_for_file(
         metadata.get("original_filename") or metadata.get("file_name") or fallback_file_name
+    )
+    display_name = (
+        metadata_display_name
+        if metadata_display_name and metadata_display_name != "Bando caricato"
+        else file_display_name
     )
     page = metadata.get("page")
 

@@ -15,13 +15,15 @@ from src.generation.checklist_generator import (
     generate_checklist,
     save_checklist,
 )
-from src.generation.fact_qa_generator import answer_document_question_from_facts
+from src.generation.company_eligibility_generator import generate_company_eligibility
+from src.generation.fact_qa_generator import answer_fact_topic
+from src.generation.participation_steps_generator import generate_participation_steps
 from src.generation.summary_generator import generate_bando_summary
 from src.indexing.index_builder import DEFAULT_DATA_DIR, build_or_update_index
 from src.retrieval.rag_engine import RagEngine
-from src.routing.fact_topic_router import classify_fact_topic
-from src.routing.intent_router import Intent, classify_intent
-from src.source_display import normalize_visible_sources
+from src.routing.command_router import normalize_explicit_command
+from src.routing.semantic_router import RouterDecision, classify_message, normalize_message
+from src.source_display import display_name_for_file, normalize_visible_sources
 
 
 HELP_TEXT = """Demo MVP per analisi di un bando.
@@ -37,6 +39,81 @@ Comandi disponibili:
 - puoi chiedere "riassumi il bando" per una sintesi section-aware
 - una domanda libera prova prima i fatti estratti e poi, se serve, il RAG
 """
+
+COMPOSER_COMMANDS = [
+    {
+        "id": "index",
+        "description": "Aggiorna l'indice locale dai PDF in data/bandi",
+        "icon": "database",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "checklist",
+        "description": "Genera la checklist operativa per la candidatura",
+        "icon": "list-checks",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "facts",
+        "description": "Mostra i fatti estratti dal bando",
+        "icon": "file-search",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "summary",
+        "description": "Genera un riassunto operativo del bando",
+        "icon": "scroll-text",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "save",
+        "description": "Salva l'ultima checklist generata",
+        "icon": "save",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "checkpoint",
+        "description": "Alias di save: salva il checkpoint operativo corrente",
+        "icon": "bookmark",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "profile",
+        "description": "Mostra il profilo MAPI Ingegneria",
+        "icon": "building-2",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "bando",
+        "description": "Aggiungi un PDF: /bando percorso/file.pdf",
+        "icon": "file-plus-2",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+    {
+        "id": "help",
+        "description": "Mostra una guida breve",
+        "icon": "circle-help",
+        "button": False,
+        "persistent": False,
+        "selected": False,
+    },
+]
 
 TYPEWRITE_INTERVAL_SECONDS = 0.018
 TYPEWRITE_MAX_SECONDS = 2.4
@@ -59,7 +136,14 @@ def _ensure_data_dir() -> None:
 def _loaded_pdf_names() -> list[str]:
     if not DEFAULT_DATA_DIR.exists():
         return []
-    return [path.name for path in sorted(DEFAULT_DATA_DIR.glob("*.pdf"))]
+    display_names = [
+        display_name_for_file(path.name) for path in sorted(DEFAULT_DATA_DIR.glob("*.pdf"))
+    ]
+    return sorted(dict.fromkeys(display_names))
+
+
+async def _set_composer_commands() -> None:
+    await cl.context.emitter.set_commands(COMPOSER_COMMANDS)
 
 
 def _copy_pdf_to_bandi(source_path: str | Path) -> Path:
@@ -126,16 +210,52 @@ def _run_facts_command() -> dict:
     }
 
 
-def _run_fact_qa_command(content: str) -> dict | None:
+def _run_fact_qa_command(topic: str) -> dict | None:
     engine = RagEngine(similarity_top_k=8, streaming=False, build_query_engine=False)
     facts = extract_bando_facts(engine)
-    return answer_document_question_from_facts(content, facts)
+    return answer_fact_topic(topic, facts)
 
 
-def _print_qa_debug(topic: str | None, source: str, fallback_to_rag: bool) -> None:
+def _run_company_eligibility_command() -> dict:
+    engine = RagEngine(similarity_top_k=8, streaming=False, build_query_engine=False)
+    return generate_company_eligibility(engine)
+
+
+def _run_participation_steps_command() -> dict:
+    engine = RagEngine(similarity_top_k=8, streaming=False, build_query_engine=False)
+    return generate_participation_steps(engine)
+
+
+def _print_router_debug(
+    message: str,
+    command: str | None,
+    decision: RouterDecision | None,
+    fact_topic: str | None,
+    source: str,
+    fallback_to_rag: bool = False,
+) -> None:
+    print("[ROUTER DEBUG]")
+    print(f"message: {message}")
+    print(f"normalized: {normalize_message(message)}")
+    print(f"command: {command or 'none'}")
+    print(f"intent: {decision.intent if decision else 'none'}")
+    print(f"fact_topic: {fact_topic or (decision.fact_topic if decision else 'none')}")
+    print(f"confidence: {decision.confidence:.2f}" if decision else "confidence: 0.00")
+    print(f"source: {source}")
+    print(f"fallback_to_rag: {'yes' if fallback_to_rag else 'no'}")
+
+
+def _print_qa_debug(
+    message: str,
+    topic: str | None,
+    source: str,
+    fallback_to_rag: bool,
+    intent: str = "fact_qa",
+) -> None:
     print("[QA DEBUG]")
-    print("intent: document_qa")
-    print(f"topic: {topic or 'none'}")
+    print(f"message: {message}")
+    print(f"intent: {intent}")
+    print(f"fact_topic: {topic or 'none'}")
     print(f"source: {source}")
     print(f"fallback_to_rag: {'yes' if fallback_to_rag else 'no'}")
 
@@ -260,63 +380,31 @@ async def _send_revealed(content: str, author: str = "Assistant") -> None:
     await _reveal_message(message, content)
 
 
-@cl.on_chat_start
-async def start():
-    _ensure_data_dir()
-    cl.user_session.set("last_checklist", None)
-    await cl.Message(content=HELP_TEXT).send()
-
-    pdf_names = _loaded_pdf_names()
-    if pdf_names:
-        names = ", ".join(pdf_names)
-        await cl.Message(
-            content=(
-                f"PDF gia' presenti in `data/bandi/`: {names}\n"
-                "Puoi fare una domanda, usare `/checklist`, oppure `/index` se hai cambiato i file."
-            )
-        ).send()
-    else:
-        await cl.Message(
-            content=(
-                "Nessun PDF presente in `data/bandi/`. Puoi comunque scrivere un messaggio; "
-                "quando vuoi, allega un PDF o usa `/bando percorso/file.pdf`."
-            )
-        ).send()
-
-
-@cl.on_message
-async def main(message: cl.Message):
-    uploaded = await _copy_message_uploads(message)
-    if uploaded:
-        names = ", ".join(path.name for path in uploaded)
-        await cl.Message(
-            content=f"PDF copiato in `data/bandi/`: {names}\nEsegui `/index` per aggiornare l'indice."
-        ).send()
-        return
-
-    content = (message.content or "").strip()
-    if not content:
-        await _send_revealed(HELP_REPLY)
-        return
-
-    if content == "/help":
+async def dispatch_command(command: str) -> bool:
+    if command == "/help":
         await _send_revealed(HELP_TEXT)
-        return
+        return True
 
-    if content.startswith("/bando "):
+    if command == "/bando":
+        await _send_revealed("Uso: `/bando percorso/file.pdf`")
+        return True
+
+    if command.startswith("/bando "):
         try:
-            copied = _copy_pdf_to_bandi(content.removeprefix("/bando ").strip())
+            copied = _copy_pdf_to_bandi(command.removeprefix("/bando ").strip())
             cl.user_session.set("rag_engine", None)
+            display_name = display_name_for_file(copied.name)
             await cl.Message(
-                content=f"PDF selezionato: `{copied}`\nEsegui `/index` per costruire l'indice."
+                content=(
+                    f"PDF selezionato: **{display_name}**\n"
+                    "Esegui `/index` per costruire l'indice."
+                )
             ).send()
         except Exception as exc:
             await cl.Message(content=f"Errore nella selezione del PDF: {exc}").send()
-        return
+        return True
 
-    intent = classify_intent(content)
-
-    if content == "/index":
+    if command == "/index":
         status_msg = await _send_status(
             _thinking_content("Indicizzazione in corso", "Leggo i PDF e preparo i chunk."),
             author="Indice",
@@ -353,9 +441,9 @@ async def main(message: cl.Message):
                 status_msg,
                 f"Errore durante l'indicizzazione: {exc}",
             )
-        return
+        return True
 
-    if content == "/facts":
+    if command == "/facts":
         status_msg = await _send_status(
             _thinking_content(
                 "Facts in estrazione",
@@ -385,17 +473,9 @@ async def main(message: cl.Message):
         except Exception as exc:
             await _stop_animation(animation)
             await _update_message(status_msg, f"Errore nell'estrazione facts: {exc}")
-        return
+        return True
 
-    if intent == Intent.GREETING:
-        await _send_revealed(GREETING_REPLY)
-        return
-
-    if intent == Intent.COMPANY_PROFILE:
-        await _send_revealed(_company_profile_reply())
-        return
-
-    if intent == Intent.CHECKLIST:
+    if command == "/checklist":
         status_msg = await _send_status(
             _thinking_content(
                 "Checklist in generazione",
@@ -438,9 +518,9 @@ async def main(message: cl.Message):
                 status_msg,
                 f"Errore nella generazione checklist: {exc}",
             )
-        return
+        return True
 
-    if intent == Intent.SUMMARY:
+    if command == "/summary":
         status_msg = await _send_status(
             _thinking_content(
                 "Riassunto in preparazione",
@@ -470,32 +550,157 @@ async def main(message: cl.Message):
         except Exception as exc:
             await _stop_animation(animation)
             await _update_message(status_msg, f"Errore nella generazione riassunto: {exc}")
-        return
+        return True
 
-    if content == "/save":
+    if command == "/save":
         checklist = cl.user_session.get("last_checklist")
         if not checklist:
             await cl.Message(
                 content="Nessuna checklist da salvare. Generala prima con `/checklist`."
             ).send()
-            return
+            return True
         try:
             path = save_checklist(checklist)
             await cl.Message(content=f"Checklist salvata in `{path}`.").send()
         except Exception as exc:
             await cl.Message(content=f"Errore durante il salvataggio: {exc}").send()
+        return True
+
+    if command == "/azienda":
+        await _send_revealed(_company_profile_reply())
+        return True
+
+    if command == "/status":
+        pdf_names = _loaded_pdf_names()
+        pdf_text = ", ".join(pdf_names) if pdf_names else "nessun PDF caricato"
+        await _send_revealed(
+            "Stato demo:\n"
+            f"- PDF in `data/bandi/`: {pdf_text}\n"
+            "- Usa `/index` dopo modifiche ai documenti.\n"
+            "- Usa `/facts`, `/summary` o `/checklist` per gli output operativi."
+        )
+        return True
+
+    return False
+
+
+@cl.on_chat_start
+async def start():
+    _ensure_data_dir()
+    cl.user_session.set("last_checklist", None)
+    await _set_composer_commands()
+
+
+@cl.on_message
+async def main(message: cl.Message):
+    uploaded = await _copy_message_uploads(message)
+    if uploaded:
+        names = ", ".join(display_name_for_file(path.name) for path in uploaded)
+        await cl.Message(
+            content=f"PDF copiato in `data/bandi/`: {names}\nEsegui `/index` per aggiornare l'indice."
+        ).send()
         return
 
-    if intent in {Intent.HELP, Intent.COMMAND}:
+    raw_content = (message.content or "").strip()
+    command = normalize_explicit_command(raw_content, getattr(message, "command", None))
+    if command:
+        _print_router_debug(raw_content, command, None, None, "command")
+        if await dispatch_command(command):
+            return
+
+    content = raw_content
+    if not content:
+        decision = RouterDecision(
+            intent="help",
+            fact_topic="none",
+            confidence=0.0,
+            reason="Messaggio vuoto.",
+        )
+        _print_router_debug(raw_content, None, decision, None, "help")
         await _send_revealed(HELP_REPLY)
         return
 
-    if intent != Intent.DOCUMENT_QA:
-        await _send_revealed(HELP_REPLY)
+    decision = classify_message(content)
+
+    if decision.intent == "greeting":
+        _print_router_debug(content, None, decision, None, "greeting")
+        await _send_revealed(GREETING_REPLY)
         return
 
-    fact_topic = classify_fact_topic(content)
-    if fact_topic is not None:
+    if decision.intent == "company_eligibility":
+        _print_router_debug(
+            content,
+            None,
+            decision,
+            "eligible_subjects",
+            "BandoFacts + company_profile",
+        )
+        try:
+            result = await cl.make_async(_run_company_eligibility_command)()
+            await _send_revealed(normalize_visible_sources(result["markdown"]))
+            await _send_sources(result["sources"])
+        except Exception as exc:
+            await _send_revealed(f"Errore nella verifica di ammissibilita': {exc}")
+        return
+
+    if decision.intent == "company_profile":
+        _print_router_debug(content, None, decision, None, "company_profile")
+        await dispatch_command("/azienda")
+        return
+
+    if decision.intent == "summary":
+        _print_router_debug(content, None, decision, None, "BandoFacts")
+        await dispatch_command("/summary")
+        return
+
+    if decision.intent == "participation_steps":
+        _print_router_debug(
+            content,
+            None,
+            decision,
+            "participation_requirements",
+            "BandoFacts",
+        )
+        status_msg = await _send_status(
+            _thinking_content(
+                "Percorso candidatura",
+                "Recupero i passaggi operativi dai fatti estratti.",
+            ),
+            author="Candidatura",
+        )
+        animation = asyncio.create_task(
+            _animate_status(
+                status_msg,
+                "Percorso candidatura",
+                (
+                    "Verifico soggetti ammessi e requisiti edificio...",
+                    "Raccolgo documenti, scadenza e modalita'...",
+                    "Compongo i passaggi essenziali...",
+                ),
+            )
+        )
+        await asyncio.sleep(0)
+        try:
+            result = await cl.make_async(_run_participation_steps_command)()
+            await _stop_animation(animation)
+            await _reveal_message(
+                status_msg,
+                normalize_visible_sources(result["markdown"]),
+            )
+            await _send_sources(result["sources"])
+        except Exception as exc:
+            await _stop_animation(animation)
+            await _update_message(status_msg, f"Errore nel percorso candidatura: {exc}")
+        return
+
+    if decision.intent == "fact_qa" and decision.fact_topic != "none":
+        _print_router_debug(
+            content,
+            None,
+            decision,
+            decision.fact_topic,
+            "BandoFacts",
+        )
         status_msg = await _send_status(
             _thinking_content(
                 "Facts in consultazione",
@@ -516,24 +721,45 @@ async def main(message: cl.Message):
         )
         await asyncio.sleep(0)
         try:
-            fact_result = await cl.make_async(_run_fact_qa_command)(content)
+            fact_result = await cl.make_async(_run_fact_qa_command)(decision.fact_topic)
             await _stop_animation(animation)
             if fact_result:
-                _print_qa_debug(fact_result["topic"], "BandoFacts", False)
+                _print_qa_debug(content, fact_result["topic"], "BandoFacts", False)
                 await _reveal_message(
                     status_msg,
                     normalize_visible_sources(fact_result["markdown"]),
                 )
                 await _send_sources(fact_result["sources"])
                 return
-            _print_qa_debug(fact_topic, "RAG", True)
+            _print_qa_debug(content, decision.fact_topic, "RAG", True)
+            _print_router_debug(
+                content,
+                None,
+                decision,
+                decision.fact_topic,
+                "RAG",
+                True,
+            )
             await _update_message(status_msg, "")
         except Exception:
             await _stop_animation(animation)
-            _print_qa_debug(fact_topic, "RAG", True)
+            _print_qa_debug(content, decision.fact_topic, "RAG", True)
+            _print_router_debug(
+                content,
+                None,
+                decision,
+                decision.fact_topic,
+                "RAG",
+                True,
+            )
             await _update_message(status_msg, "")
     else:
-        _print_qa_debug(None, "RAG", True)
+        if decision.intent == "help":
+            _print_router_debug(content, None, decision, None, "help")
+            await _send_revealed(HELP_REPLY)
+            return
+        _print_router_debug(content, None, decision, decision.fact_topic, "RAG", True)
+        _print_qa_debug(content, None, "RAG", True, intent="document_qa")
 
     status_msg = await _send_status(
         _thinking_content("RAG al lavoro", "Recupero i passaggi rilevanti dal bando."),

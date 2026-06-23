@@ -17,7 +17,7 @@ from src.retrieval.rag_engine import RagEngine
 from src.source_display import normalize_visible_sources
 
 
-FACTS_SCHEMA_VERSION = 3
+FACTS_SCHEMA_VERSION = 5
 FACTS_CACHE_PATH = Path("outputs/cache/bando_facts.json")
 FIELD_TOP_K = 8
 MIN_RELEVANT_CHUNKS = 3
