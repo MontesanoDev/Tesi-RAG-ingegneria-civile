@@ -42,6 +42,7 @@ Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, 
 ├── data/
 │   ├── bandi/                     # PDF dei bandi caricati manualmente
 │   └── aziende/                   # Profilo aziendale simulato, es. mapi_ingegneria.yaml
+├── docs/                          # Documentazione del prototipo e del caso studio
 ├── outputs/checklist/             # Checklist Markdown salvate dalla UI
 ├── chroma_db/                     # Database vettoriale locale generato dopo l'ingestione
 ├── scripts/                       # Script per installazione, ingestion e avvio
@@ -52,7 +53,7 @@ Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, 
 │   ├── run_chainlit_unix.sh       # Avvio Chainlit su Linux/macOS
 │   └── run_chainlit_windows.ps1   # Avvio Chainlit su Windows PowerShell
 ├── .env                           # Variabili d'ambiente, da non caricare su GitHub
-├── .env.example                   # Esempio di configurazione
+├── .env.example                   # Esempio di configurazione, se presente nella copia locale
 ├── requirements.txt               # Dipendenze Python
 └── README.md
 ```
@@ -324,16 +325,18 @@ Gli script non modificano la logica del progetto: servono solo a rendere più se
 
 ## Dataset
 
-Inserire i PDF dei bandi nella cartella `data/bandi`:
+Inserire i PDF da analizzare nella cartella `data/bandi`:
 
 ```text
 data/bandi/
-├── bando_1.pdf
-├── bando_2.pdf
-└── bando_3.pdf
+├── avviso_principale.pdf
+├── allegato_a.pdf
+└── disciplinare.pdf
 ```
 
 Il progetto è pensato per lavorare con documenti amministrativi reali, generalmente pubblicati dagli enti pubblici in formato PDF.
+
+Il perimetro operativo del prototipo è un bando alla volta. Più PDF sono supportati quando appartengono allo stesso avviso o procedimento, ad esempio avviso principale, allegati e disciplinare. Bandi diversi caricati insieme non sono gestiti come casi separati e possono produrre facts, riassunti e checklist mescolati.
 
 Il profilo aziendale simulato può essere salvato in:
 
@@ -477,13 +480,16 @@ La pipeline attuale segue questi passaggi:
 4. **Archiviazione vettoriale**  
    I vettori vengono salvati localmente tramite ChromaDB.
 
-5. **Retrieval**  
-   Quando l'utente pone una domanda, il sistema recupera i chunk più rilevanti dal database vettoriale.
+5. **Estrazione e uso dei fatti del bando**  
+   Le informazioni principali vengono organizzate in `BandoFacts`, una struttura intermedia che raccoglie elementi come soggetti ammessi, requisiti, scadenze, documenti richiesti e modalità di presentazione.
 
-6. **Generazione della risposta**  
-   I chunk recuperati vengono forniti come contesto al modello LLM configurato, che genera una risposta in italiano.
+6. **Routing della richiesta**  
+   Quando l'utente pone una domanda, il sistema decide se rispondere usando i fatti già estratti, lo scenario MAPI, una procedura operativa o il recupero dal documento.
 
-7. **Visualizzazione delle fonti**  
+7. **Retrieval come fallback**  
+   Se la domanda non è coperta dai fatti strutturati o dallo scenario, il sistema recupera i chunk più rilevanti dal database vettoriale e li usa come contesto per il modello LLM configurato.
+
+8. **Visualizzazione delle fonti**  
    L'interfaccia mostra i documenti utilizzati come fonti per la risposta.
 
 ## Prompt personalizzato
@@ -504,6 +510,7 @@ Il progetto è un prototipo sperimentale e non un sistema pronto per la produzio
 Limitazioni attuali:
 
 - i documenti vengono selezionati manualmente;
+- il prototipo lavora su un bando alla volta, con più PDF solo se collegati allo stesso procedimento;
 - il profilo aziendale è simulato e va completato a mano;
 - eventuali PDF scansionati potrebbero richiedere OCR prima dell'ingestione;
 - le fonti dipendono dai metadati estraibili dal PDF e dalla qualita' del testo recuperato;
