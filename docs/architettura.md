@@ -10,7 +10,7 @@ Il problema non e' quindi solo "rispondere a domande su un PDF", ma supportare u
 
 ## 2. Obiettivo della soluzione
 
-L'obiettivo del sistema e' assistere l'utente nell'analisi iniziale di un bando e nella produzione di una checklist operativa revisionabile.
+L'obiettivo del sistema è assistere l'utente nell'analisi iniziale di un bando e nella produzione di una checklist operativa revisionabile.
 
 Il sistema non ha l'obiettivo di generare automaticamente una candidatura completa. La candidatura resta un processo che richiede valutazione umana, conoscenza aziendale e controllo finale.
 
@@ -55,14 +55,14 @@ La pipeline segue un flusso semplice:
 
 ## 5. Componenti funzionali
 
-| Componente | Responsabilita' |
-|---|---|
-| Acquisizione documento | Permette all'utente di fornire manualmente il bando da analizzare |
-| Estrazione contenuto | Ricava il testo disponibile dal documento |
+| Componente                 | Responsabilita'                                                               |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| Acquisizione documento     | Permette all'utente di fornire manualmente il bando da analizzare             |
+| Estrazione contenuto       | Ricava il testo disponibile dal documento                                     |
 | Organizzazione informativa | Suddivide il contenuto in parti gestibili e mantiene riferimenti al documento |
-| Recupero contestuale | Seleziona le parti del bando rilevanti per una domanda o per la checklist |
-| Generazione assistita | Produce un output leggibile a partire dalle informazioni recuperate |
-| Revisione umana | Permette all'utente di validare, correggere e integrare il risultato |
+| Recupero contestuale       | Seleziona le parti del bando rilevanti per una domanda o per la checklist     |
+| Generazione assistita      | Produce un output leggibile a partire dalle informazioni recuperate           |
+| Revisione umana            | Permette all'utente di validare, correggere e integrare il risultato          |
 
 ## 6. Primo caso d'uso
 
@@ -96,6 +96,7 @@ Ogni elemento, quando possibile, deve riportare un riferimento al documento di o
 ### Incluso
 
 - caricamento o selezione manuale di un bando;
+- gestione di più PDF solo quando appartengono allo stesso avviso o procedimento;
 - estrazione del testo dal documento;
 - interrogazione del bando;
 - generazione di una checklist revisionabile;
@@ -107,6 +108,7 @@ Ogni elemento, quando possibile, deve riportare un riferimento al documento di o
 - ricerca automatica dei bandi online;
 - scraping di siti istituzionali;
 - gestione completa di piu' bandi contemporaneamente;
+- confronto tra bandi diversi caricati nello stesso indice;
 - generazione automatica della candidatura finale;
 - compilazione automatica degli allegati;
 - integrazione con sistemi aziendali reali;

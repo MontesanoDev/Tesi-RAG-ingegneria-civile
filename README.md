@@ -23,7 +23,7 @@ Il sistema indicizza PDF caricati manualmente in un database vettoriale locale, 
 - Possibilità di utilizzare provider esterni o server universitari/aziendali
 - Interfaccia chat realizzata con Chainlit
 - Visualizzazione dei documenti sorgente utilizzati per la risposta
-- Output di debug con chunk recuperati e relativi score di similarità
+- Log di debug lato sviluppo per controllare retrieval, fonti e routing
 
 ## Struttura del progetto
 
@@ -97,7 +97,7 @@ Esegue le seguenti operazioni:
 4. genera riepiloghi section-aware con `riassumi il bando`;
 5. genera checklist con `/checklist`;
 6. mostra i fatti estratti con `/facts`;
-7. salva l'ultima checklist con `/save`;
+7. salva l'ultima checklist con `/save` e la rende scaricabile dal browser;
 8. mostra le fonti recuperate quando disponibili.
 
 La logica applicativa resta nei moduli sotto `src/`; la UI orchestra soltanto i componenti.
@@ -416,6 +416,8 @@ I comandi principali sono:
 /profile
 /bando percorso/file.pdf
 ```
+
+I comandi vanno inviati senza testo aggiuntivo, tranne `/bando`, che accetta il percorso del PDF. Se si vuole fare una domanda libera, non bisogna selezionare un comando.
 
 Una domanda senza prefisso viene trattata come query libera sul bando indicizzato.
 
